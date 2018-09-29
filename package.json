@@ -8,7 +8,6 @@
     "lint": "tslint -c tslint.json -p tsconfig.json",
     "start": "npm run build && electron ./dist/main.js"
   },
-  "repository": "https://github.com/electron/electron-quick-start-typescript",
   "keywords": [
     "Electron",
     "quick",
@@ -17,8 +16,6 @@
     "demo",
     "typescript"
   ],
-  "author": "GitHub",
-  "license": "CC0-1.0",
   "devDependencies": {
     "electron": "^2.0.2",
     "tslint": "^5.10.0",
