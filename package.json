@@ -22,7 +22,11 @@
     "typescript": "^2.8.3"
   },
   "dependencies": {
+    "@types/chokidar": "^1.7.5",
+    "@types/fs-extra": "^5.0.4",
     "@types/node": "^10.11.3",
+    "chokidar": "^2.0.4",
+    "fs-extra": "^7.0.0",
     "googleapis": "^34.0.0"
   }
 }
