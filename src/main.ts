@@ -1,11 +1,13 @@
 // clipshare101:T&cVI0f$14K7WQ*n$n07
-import * as chokidar from 'chokidar';
-import { app, BrowserWindow, dialog } from 'electron';
-import * as fs from 'fs';
-import { OAuth2Client } from 'google-auth-library';
-import { google } from 'googleapis';
-import * as path from 'path';
-import { URL } from 'url';
+import * as chokidar from "chokidar";
+import { app, BrowserWindow, dialog } from "electron";
+import * as fs from "fs";
+import { OAuth2Client } from "google-auth-library";
+import { google } from "googleapis";
+import * as mimeTypes from "mime-types";
+import * as path from "path";
+import * as request from "request";
+import { URL } from "url";
 
 // If modifying these scopes, delete token.json.
 
@@ -55,7 +57,7 @@ function createWindow() {
         }
         if (token) {
           oAuth2Client.setCredentials(token);
-          console.log('oAuth set credentials with token: ', token); 
+          console.log('oAuth set credentials with token: ', token);
         }
         // Store the token to disk for later program executions
         fs.writeFile(TOKEN_PATH, JSON.stringify(token), err => {
@@ -180,34 +182,53 @@ function startWatcher(path: string) {
 }
 
 async function addFileToGDrive(filePath: string) {
-  
   console.log('Adding new file to remote drive.');
-      const fileName = path.basename(filePath);
+  const fileName = path.basename(filePath);
+  // empty mimeType in case type is unknown 
+  const mimeType = mimeTypes.lookup(filePath) || '';
+  console.log('mimeType: ', mimeType);
+  if (!mimeType.includes('image')) {
+    // uploading only screenshots
+    return;
+  }
 
-      var fileMetadata = {
-        name: fileName
-      };
+  const drive = google.drive({ version: 'v3', auth: oAuth2Client });
 
-      var media = {
-        mimeType: 'image/png',
-        body: fs.createReadStream(filePath)
-      };
-
-      const drive = google.drive({ version: 'v3', auth: oAuth2Client });
-      
-      drive.files.create({
+  drive.files.create({
+    requestBody: {
+      name: fileName,
+      mimeType: mimeType
+    }, media: {
+      mediaType: mimeType,
+      body: fs.createReadStream(filePath)
+    }
+  }, (err, axiosResponse) => {
+    if (err) {
+      console.log(err);
+    } else {
+      console.log('File id:', axiosResponse.data);
+      const fileId = axiosResponse.data.id;
+      // create reader permissions to anyone
+      drive.permissions.create({
+        fileId: fileId,
         requestBody: {
-          name: fileName,
-          mimeType: 'image/png'
-        }, media: {
-          mediaType: 'image/png',
-          body: fs.createReadStream(filePath)
-        }}, (err, axiosResponse) => {
-          if (err) {
-            console.log(err);
-          } else {
-            console.log('File id:', axiosResponse.data);
-          }
-        })
+          role: "reader",
+          type: "anyone",
+          allowFileDiscovery: true
+        }
+      }, function (err, result) {
+        if (err) {
+          console.log(err)
+        } else {
+          const filePublicUrl = 'https://drive.google.com/uc?export=view&id=' + fileId;
+          console.log('public url: ', filePublicUrl);
+
+          request({ url: filePublicUrl, followRedirect: false }, function (err, res, body) {
+            console.log('direct public URL: ', res.headers.location);
+          });
+        }
+      });
+    }
+  });
 
 }
