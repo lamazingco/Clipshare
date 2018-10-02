@@ -8,6 +8,7 @@ import * as mimeTypes from "mime-types";
 import * as path from "path";
 import { URL } from "url";
 import { BitlyClient } from 'bitly'
+import * as clipboard from 'clipboardy'
 const bitlyClient = new BitlyClient('9d94c5f5c8e3ee44310e2da016e8dd47eb5957ff');
 
 
@@ -222,13 +223,14 @@ async function addFileToGDrive(filePath: string) {
       });
     }
   });
-
 }
 
 async function shortenUrl(longUrl: string) {
   await bitlyClient.shorten(longUrl)
     .then((result) => {
-      console.log(result);
+      var json = JSON.parse(JSON.stringify(result));
+      console.log(json.url);
+      clipboard.writeSync(json.url);
     }).catch((error) => {
       console.log(error);
     });
