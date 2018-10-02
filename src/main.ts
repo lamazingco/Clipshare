@@ -1,4 +1,3 @@
-// clipshare101:T&cVI0f$14K7WQ*n$n07
 import * as chokidar from "chokidar";
 import { app, BrowserWindow, dialog, Notification } from "electron";
 import * as fs from "fs";

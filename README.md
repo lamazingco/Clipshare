@@ -1,53 +1,37 @@
-# electron-quick-start-typescript
+# ClipShare
 
-**Clone and run for a quick way to see Electron in action.**
+**Privacy centric screenshot app**
 
-This is a typescript port of the [Electron Quick Start repo](https://github.com/electron/electron-quick-start) -- a minimal Electron application based on the [Quick Start Guide](http://electron.atom.io/docs/tutorial/quick-start) within the Electron documentation.
+ClipShare is an elegant cross-platform app which copies to clipboard a shortlink to latest screenshot you take.
 
-**Use this app along with the [Electron API Demos](http://electron.atom.io/#get-started) app for API code examples to help you get started.**
+The main idea is to have the images saved on your own Google Drive (for your own good), and have them be easily previewed like usually.
 
-A basic Electron application needs just these files:
+The most amazing part is that it's your own screenshot, in your own gDrive account, and you decide when and how you share it.
 
-- `package.json` - Points to the app's main file and lists its details and dependencies.
-- `main.ts` - Starts the app and creates a browser window to render HTML. This is the app's **main process**.
-- `index.html` - A web page to render. This is the app's **renderer process**.
+## Features
 
-You can learn more about each of these components within the [Quick Start Guide](http://electron.atom.io/docs/tutorial/quick-start).
+* auth with Google Drive & save token locally for future uses
+* monitor a folder when new screenshots are added
+* upload screenshot to Google Drive and share it to anyone with the link
+* shorten URL using bit.ly service
 
-## To Use
+## Installing
 
-To clone and run this repository you'll need [Git](https://git-scm.com) and [Node.js](https://nodejs.org/en/download/) (which comes with [npm](http://npmjs.com)) installed on your computer. From your command line:
+// TODO
 
-```bash
-# Clone this repository
-git clone https://github.com/electron/electron-quick-start-typescript
-# Go into the repository
-cd electron-quick-start-typescript
-# Install dependencies
-npm install
-# Run the app
-npm start
-```
+## Future Plans
 
-Note: If you're using Linux Bash for Windows, [see this guide](https://www.howtogeek.com/261575/how-to-run-graphical-linux-desktop-applications-from-windows-10s-bash-shell/) or use `node` from the command prompt.
+* launch at startup
+* handle expired token 
+* save screenshots folder
+* add basic analytics trackers (active users, app launches, screenshots uploaded)
+* show icon in system tray
+* implement preferences to be able to config screenshots folder, launch at startup, Google Drive account sign in/out.
 
-## Re-compile automatically
+## Contributing
 
-To recompile automatically and to allow using [electron-reload](https://github.com/yan-foto/electron-reload), run this in a separate terminal:
-
-```bash
-npm run watch
-```
-
-## Resources for Learning Electron
-
-- [electron.atom.io/docs](http://electron.atom.io/docs) - all of Electron's documentation
-- [electron.atom.io/community/#boilerplates](http://electron.atom.io/community/#boilerplates) - sample starter apps created by the community
-- [electron/electron-quick-start](https://github.com/electron/electron-quick-start) - a very basic starter Electron app
-- [electron/simple-samples](https://github.com/electron/simple-samples) - small applications with ideas for taking them further
-- [electron/electron-api-demos](https://github.com/electron/electron-api-demos) - an Electron app that teaches you how to use Electron
-- [hokein/electron-sample-apps](https://github.com/hokein/electron-sample-apps) - small demo apps for the various Electron APIs
+// TODO
 
 ## License
 
-[CC0 1.0 (Public Domain)](LICENSE.md)
+MIT
