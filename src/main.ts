@@ -6,10 +6,10 @@ import { OAuth2Client } from "google-auth-library";
 import { google } from "googleapis";
 import * as mimeTypes from "mime-types";
 import * as path from "path";
-import * as request from "request";
 import { URL } from "url";
+import { BitlyClient } from 'bitly'
+const bitlyClient = new BitlyClient('9d94c5f5c8e3ee44310e2da016e8dd47eb5957ff');
 
-// If modifying these scopes, delete token.json.
 
 // If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
@@ -35,9 +35,6 @@ function createWindow() {
     }
     // Authorize a client with credentials, then call the Google Drive API.
     authorize(JSON.parse(content.toString()), null);
-    // https://accounts.google.com/o/oauth2/approval/v2/approvalnativeapp?auto=false
-    // &response=code%3D4%2FagCHB-6DkTvVFf80ts-bkvfItwrvLiMYMmeRLu9jEAxzwFlzaX0eurw&hl=en&
-    // approvalCode=4/FagCHB-6DkTvVFf80ts-bkvfItwrvLiMYMmeRLu9jEAxzwFlzaX0eurw
   });
 
   // Open the DevTools.
@@ -102,9 +99,6 @@ app.on('activate', () => {
     createWindow();
   }
 });
-
-// In this file you can include the rest of your app"s specific main process
-// code. You can also put them in separate files and require them here.
 
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
@@ -222,13 +216,20 @@ async function addFileToGDrive(filePath: string) {
         } else {
           const filePublicUrl = 'https://drive.google.com/uc?export=view&id=' + fileId;
           console.log('public url: ', filePublicUrl);
+          shortenUrl(filePublicUrl);
 
-          request({ url: filePublicUrl, followRedirect: false }, function (err, res, body) {
-            console.log('direct public URL: ', res.headers.location);
-          });
         }
       });
     }
   });
 
+}
+
+async function shortenUrl(longUrl: string) {
+  await bitlyClient.shorten(longUrl)
+    .then((result) => {
+      console.log(result);
+    }).catch((error) => {
+      console.log(error);
+    });
 }
