@@ -1,13 +1,13 @@
 // clipshare101:T&cVI0f$14K7WQ*n$n07
 import * as chokidar from "chokidar";
-import { app, BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow, dialog, Notification } from "electron";
 import * as fs from "fs";
 import { OAuth2Client } from "google-auth-library";
 import { google } from "googleapis";
 import * as mimeTypes from "mime-types";
 import * as path from "path";
 import { URL } from "url";
-import { BitlyClient } from 'bitly'
+import { BitlyClient } from 'bitly/dist/bitly';
 import * as clipboard from 'clipboardy'
 const bitlyClient = new BitlyClient('9d94c5f5c8e3ee44310e2da016e8dd47eb5957ff');
 
@@ -209,7 +209,7 @@ async function addFileToGDrive(filePath: string) {
         requestBody: {
           role: "reader",
           type: "anyone",
-          allowFileDiscovery: true
+          allowFileDiscovery: false
         }
       }, function (err, result) {
         if (err) {
@@ -227,10 +227,17 @@ async function addFileToGDrive(filePath: string) {
 
 async function shortenUrl(longUrl: string) {
   await bitlyClient.shorten(longUrl)
-    .then((result) => {
-      var json = JSON.parse(JSON.stringify(result));
-      console.log(json.url);
-      clipboard.writeSync(json.url);
+    .then((result: any) => {
+      console.log(result.url);
+      clipboard.writeSync(result.url);
+
+      if (Notification.isSupported) {
+        new Notification({
+          title: "Screenshot Ready",
+          body: result.url,
+        }).show();
+      }
+
     }).catch((error) => {
       console.log(error);
     });
