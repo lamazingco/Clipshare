@@ -10,8 +10,9 @@
     "watch": "tsc -w",
     "lint": "tslint -c tslint.json -p tsconfig.json",
     "start": "npm run build && electron ./app/main.js",
-    "dist": "electron-builder -mwl"
+    "dist": "npm run build && electron-builder -mwl"
   },
+  "main": "app/main.js",
   "build": {
     "appId": "co.lamazing.clipshare",
     "productName": "ClipShare",
