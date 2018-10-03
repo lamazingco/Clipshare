@@ -158,7 +158,10 @@ function openDirectoryDialog() {
 function startWatcher(path: string) {
   const watcher = chokidar.watch(path, {
     persistent: true,
-    ignored: /[\/\\]\./
+    ignored: /[\/\\]\./,
+    awaitWriteFinish: {
+      stabilityThreshold: 500
+    }
   });
 
   var isReady = false;
