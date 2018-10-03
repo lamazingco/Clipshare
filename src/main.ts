@@ -9,7 +9,7 @@ import { URL } from "url";
 import { BitlyClient } from 'bitly/dist/bitly';
 import * as clipboard from 'clipboardy'
 const bitlyClient = new BitlyClient('9d94c5f5c8e3ee44310e2da016e8dd47eb5957ff');
-
+import { TrayMenu } from './TrayMenu';
 
 // If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
@@ -18,6 +18,7 @@ const TOKEN_PATH = 'token.json';
 let mainWindow: Electron.BrowserWindow;
 let oAuth2Client: OAuth2Client;
 let clipshareFolderId: string;
+let trayMenu: TrayMenu;
 
 function createWindow() {
   // Create the browser window.
@@ -47,7 +48,7 @@ function createWindow() {
       const parsed = new URL(url);
       const approvalCode = parsed.searchParams.get('approvalCode');
       console.log(approvalCode);
-      // mainWindow.close();
+      mainWindow.close();
 
       oAuth2Client.getToken(approvalCode, (err: any, token: any) => {
         if (err) {
@@ -69,6 +70,8 @@ function createWindow() {
       openDirectoryDialog();
     }
   });
+
+  createTrayMenu();
 
   // Emitted when the window is closed.
   mainWindow.on('closed', () => {
@@ -101,6 +104,11 @@ app.on('activate', () => {
   }
 });
 
+function createTrayMenu() {
+  trayMenu = new TrayMenu();
+  trayMenu.createTrayMenu();
+}
+
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
  * given callback function.
@@ -122,7 +130,7 @@ function authorize(credentials: any, callback?: Function) {
     }
     oAuth2Client.setCredentials(JSON.parse(token.toString()));
     openDirectoryDialog();
-    saveOrCreateClipshareFolder();
+    getOrCreateClipshareFolder();
     if (callback) {
       callback(oAuth2Client);
     }
@@ -151,13 +159,15 @@ function openDirectoryDialog() {
       properties: ['openDirectory']
     },
     path => {
-      console.log(path[0]);
+      mainWindow.close();
       startWatcher(path[0]);
     }
   );
 }
 
 function startWatcher(path: string) {
+  console.log('watching', path, 'for new files');
+
   const watcher = chokidar.watch(path, {
     persistent: true,
     ignored: /[\/\\]\./,
@@ -167,23 +177,21 @@ function startWatcher(path: string) {
   });
 
   var isReady = false;
-  watcher
-    .on('ready', () => {
-      // ready to watch
-      isReady = true;
-    })
+  watcher.on('ready', () => {
+    isReady = true;
+  })
     .on('add', filePath => {
       if (isReady) {
-        console.log(filePath);
+        console.log('file added: ', filePath);
         addFileToGDrive(filePath);
       }
     });
 }
 
 function addFileToGDrive(filePath: string) {
-  console.log('Adding new file to remote drive.');
+  console.log('Adding new file to google drive.');
   const fileName = path.basename(filePath);
-  // empty mimeType in case type is unknown 
+  // empty mimeType when type is unknown 
   const mimeType = mimeTypes.lookup(filePath) || '';
   console.log('mimeType: ', mimeType);
   if (!mimeType.includes('image')) {
@@ -254,11 +262,9 @@ function showNotification(title: string, message: string) {
   }
 }
 
-function saveOrCreateClipshareFolder() {
+function getOrCreateClipshareFolder() {
   console.log("checking if clipshare folder exists");
-
   const drive = google.drive({ version: 'v3', auth: oAuth2Client });
-
   drive.files.list({
     q: 'name contains "clipshare" and trashed=false'
   }, (error, result) => {
@@ -281,8 +287,8 @@ function saveOrCreateClipshareFolder() {
 }
 
 function createClipshareFolder() {
+  console.log('creating clipshare folder');
   const drive = google.drive({ version: 'v3', auth: oAuth2Client });
-
   drive.files.create({
     requestBody: {
       name: 'Clipshare',
@@ -290,7 +296,7 @@ function createClipshareFolder() {
     }
   }, (error, result) => {
     if (error) {
-      console.log(error);
+      console.log('failed creating clipshare folder:', error);
     } else {
       clipshareFolderId = result.data.id;
       console.log('folder created: ', result.data.name, result.data.id);
