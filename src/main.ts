@@ -17,6 +17,7 @@ const TOKEN_PATH = 'token.json';
 
 let mainWindow: Electron.BrowserWindow;
 let oAuth2Client: OAuth2Client;
+let clipshareFolderId: string;
 
 function createWindow() {
   // Create the browser window.
@@ -121,6 +122,7 @@ function authorize(credentials: any, callback?: Function) {
     }
     oAuth2Client.setCredentials(JSON.parse(token.toString()));
     openDirectoryDialog();
+    saveOrCreateClipshareFolder();
     if (callback) {
       callback(oAuth2Client);
     }
@@ -178,7 +180,7 @@ function startWatcher(path: string) {
     });
 }
 
-async function addFileToGDrive(filePath: string) {
+function addFileToGDrive(filePath: string) {
   console.log('Adding new file to remote drive.');
   const fileName = path.basename(filePath);
   // empty mimeType in case type is unknown 
@@ -194,7 +196,8 @@ async function addFileToGDrive(filePath: string) {
   drive.files.create({
     requestBody: {
       name: fileName,
-      mimeType: mimeType
+      mimeType: mimeType,
+      parents: [clipshareFolderId]
     }, media: {
       mediaType: mimeType,
       body: fs.createReadStream(filePath)
@@ -227,20 +230,70 @@ async function addFileToGDrive(filePath: string) {
   });
 }
 
-async function shortenUrl(longUrl: string) {
-  await bitlyClient.shorten(longUrl)
+function shortenUrl(longUrl: string) {
+  bitlyClient.shorten(longUrl)
     .then((result: any) => {
       console.log(result.url);
-      clipboard.writeSync(result.url);
-
-      if (Notification.isSupported) {
-        new Notification({
-          title: "Screenshot Ready",
-          body: result.url,
-        }).show();
-      }
-
+      saveScreenshotToClipboard(result.url);
     }).catch((error) => {
       console.log(error);
     });
+}
+
+function saveScreenshotToClipboard(url: string) {
+  clipboard.writeSync(url);
+  showNotification('Screenshot copied to clipboard', url);
+}
+
+function showNotification(title: string, message: string) {
+  if (Notification.isSupported) {
+    new Notification({
+      title: title,
+      body: message,
+    }).show();
+  }
+}
+
+function saveOrCreateClipshareFolder() {
+  console.log("checking if clipshare folder exists");
+
+  const drive = google.drive({ version: 'v3', auth: oAuth2Client });
+
+  drive.files.list({
+    q: 'name contains "clipshare" and trashed=false'
+  }, (error, result) => {
+    if (error) {
+      console.log('Error while searching for clipshare folder: ', error);
+    } else {
+      console.log("successfully checked if clipshare folder exists");
+      const files = result.data.files;
+      if (files.length) {
+        clipshareFolderId = files[0].id;
+        console.log("Files: ");
+        files.map((file) => {
+          console.log(`${file.name} (${file.id})`);
+        })
+      } else {
+        createClipshareFolder();
+      }
+    }
+  })
+}
+
+function createClipshareFolder() {
+  const drive = google.drive({ version: 'v3', auth: oAuth2Client });
+
+  drive.files.create({
+    requestBody: {
+      name: 'Clipshare',
+      mimeType: 'application/vnd.google-apps.folder'
+    }
+  }, (error, result) => {
+    if (error) {
+      console.log(error);
+    } else {
+      clipshareFolderId = result.data.id;
+      console.log('folder created: ', result.data.name, result.data.id);
+    }
+  })
 }
