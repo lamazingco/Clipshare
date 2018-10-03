@@ -1,23 +1,51 @@
 {
   "name": "electron-quick-start-typescript",
   "version": "1.0.0",
-  "description": "A minimal Electron application written with Typescript",
+  "description": "Screenshot sharing app using Google Drive",
+  "repository": "https://github.com/lamazingco/clipshare",
+  "author": "Lamazing",
+  "license": "MIT",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
     "lint": "tslint -c tslint.json -p tsconfig.json",
-    "start": "npm run build && electron ./dist/main.js"
+    "start": "npm run build && electron ./app/main.js",
+    "dist": "electron-builder -mwl"
+  },
+  "build": {
+    "appId": "co.lamazing.clipshare",
+    "productName": "ClipShare",
+    "copyright": "Copyright © 2018 ClipShare",
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "Productivity"
+    },
+    "linux": {
+      "category": "Utility",
+      "target": [
+        "AppImage"
+      ]
+    },
+    "win": {
+      "target": "NSIS"
+    }
   },
   "keywords": [
-    "Electron",
-    "quick",
-    "start",
-    "tutorial",
-    "demo",
-    "typescript"
+    "electron",
+    "screenshot",
+    "drive",
+    "google drive",
+    "google",
+    "typescript",
+    "screenshot sharing",
+    "sharing"
   ],
   "devDependencies": {
     "electron": "^2.0.11",
+    "electron-builder": "^20.28.4",
     "tslint": "^5.10.0",
     "typescript": "^2.8.3"
   },
