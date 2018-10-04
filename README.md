@@ -21,12 +21,12 @@ The most amazing part is that it's your own screenshot, in your own gDrive accou
 
 ## Future Plans
 
-* launch at startup
-* handle expired token 
-* save screenshots folder
-* add basic analytics trackers (active users, app launches, screenshots uploaded)
-* show icon in system tray
-* implement preferences to be able to config screenshots folder, launch at startup, Google Drive account sign in/out.
+- [ ] launch at startup
+- [ ] handle expired token 
+- [x] save screenshots folder
+- [ ] add basic analytics trackers (active users, app launches, screenshots uploaded)
+- [x] show icon in system tray
+- [x] implement preferences to be able to config screenshots folder, launch at startup, Google Drive account sign in/out.
 
 ## Contributing
 
