@@ -1,6 +1,7 @@
 import { Tray, Menu, nativeImage, NativeImage } from 'electron'
 const platform = require('os').platform()
 const imageFolder = './assets/icons'
+const preferences = require('./Preferences')
 
 export class TrayMenu extends Tray {
     constructor() {
@@ -10,8 +11,6 @@ export class TrayMenu extends Tray {
     createTrayMenu() {
         if (platform == 'darwin') {
             const iconPath = imageFolder + '/osx/trayHighlight.png';
-            console.log('iconPath:', iconPath);
-
             this.setPressedImage(nativeImage.createFromPath(iconPath));
         }
         this.setToolTip('ClipChare');
@@ -37,7 +36,12 @@ function getTrayMenu() {
     return Menu.buildFromTemplate([
         {
             label: 'Preferences', click() {
-
+                preferences.showPreferences();
+            }
+        },
+        {
+            label: 'Logout', click() {
+                preferences.logout();
             }
         },
         {

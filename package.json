@@ -59,6 +59,7 @@
     "bitly": "^6.0.8",
     "chokidar": "^2.0.4",
     "clipboardy": "^1.2.3",
+    "electron-preferences": "^1.2.0",
     "fs-extra": "^7.0.0",
     "googleapis": "^34.0.0",
     "mime-types": "^2.1.20"

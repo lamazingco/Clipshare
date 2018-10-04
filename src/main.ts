@@ -10,15 +10,15 @@ import { BitlyClient } from 'bitly/dist/bitly';
 import * as clipboard from 'clipboardy'
 const bitlyClient = new BitlyClient('9d94c5f5c8e3ee44310e2da016e8dd47eb5957ff');
 import { TrayMenu } from './TrayMenu';
+const preferences = require('./Preferences')
 
-// If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
-const TOKEN_PATH = 'token.json';
 
 let mainWindow: Electron.BrowserWindow;
 let oAuth2Client: OAuth2Client;
 let clipshareFolderId: string;
 let trayMenu: TrayMenu;
+let fileWatcher: chokidar.FSWatcher;
 
 function createWindow() {
   // Create the browser window.
@@ -27,49 +27,13 @@ function createWindow() {
     width: 800
   });
 
-  // and load the index.html of the app.
+  // load the index.html of the app.
   mainWindow.loadFile(path.join(__dirname, '../index.html'));
 
-  // Load client secrets from a local file.
-  fs.readFile('credentials.json', (err, content) => {
-    if (err) {
-      return console.log('Error loading client secret file:', err);
-    }
-    // Authorize a client with credentials, then call the Google Drive API.
-    authorize(JSON.parse(content.toString()), null);
-  });
+  authorizeWithGoogleDrive();
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools();
-
-  mainWindow.webContents.on('will-navigate', (ev: any, url: string) => {
-    if (url.includes('approvalCode')) {
-      // Get the approvalCode from URL params
-      const parsed = new URL(url);
-      const approvalCode = parsed.searchParams.get('approvalCode');
-      console.log(approvalCode);
-      mainWindow.close();
-
-      oAuth2Client.getToken(approvalCode, (err: any, token: any) => {
-        if (err) {
-          return console.error('Error retrieving access token', err);
-        }
-        if (token) {
-          oAuth2Client.setCredentials(token);
-          console.log('oAuth set credentials with token: ', token);
-        }
-        // Store the token to disk for later program executions
-        fs.writeFile(TOKEN_PATH, JSON.stringify(token), err => {
-          if (err) {
-            console.error(err);
-          }
-          console.log('Token stored to', TOKEN_PATH);
-        });
-      });
-
-      openDirectoryDialog();
-    }
-  });
+  //mainWindow.webContents.openDevTools();
 
   createTrayMenu();
 
@@ -109,13 +73,23 @@ function createTrayMenu() {
   trayMenu.createTrayMenu();
 }
 
+function authorizeWithGoogleDrive() {
+  fs.readFile('credentials.json', (err, content) => {
+    if (err) {
+      return console.log('Error loading client secret file:', err);
+    }
+    // Authorize a client with credentials, then call the Google Drive API.
+    authorize(JSON.parse(content.toString()));
+  });
+}
+
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
  * given callback function.
  * @param {Object} credentials The authorization client credentials.
  * @param {function} callback The callback to call with the authorized client.
  */
-function authorize(credentials: any, callback?: Function) {
+function authorize(credentials: any) {
   const { client_secret, client_id, redirect_uris } = credentials.installed;
   oAuth2Client = new google.auth.OAuth2(
     client_id,
@@ -123,18 +97,15 @@ function authorize(credentials: any, callback?: Function) {
     redirect_uris[0]
   );
 
-  // Check if we have previously stored a token.
-  fs.readFile(TOKEN_PATH, (err, token) => {
-    if (err) {
-      return getAccessToken(oAuth2Client, callback);
-    }
-    oAuth2Client.setCredentials(JSON.parse(token.toString()));
+  const savedToken = preferences.getToken();
+
+  if (savedToken) {
+    oAuth2Client.setCredentials(JSON.parse(savedToken));
     openDirectoryDialog();
     getOrCreateClipshareFolder();
-    if (callback) {
-      callback(oAuth2Client);
-    }
-  });
+  } else {
+    getAccessToken(oAuth2Client);
+  }
 }
 
 /**
@@ -143,32 +114,63 @@ function authorize(credentials: any, callback?: Function) {
  * @param {google.auth.OAuth2} oAuth2Client The OAuth2 client to get token for.
  * @param {getEventsCallback} callback The callback for the authorized client.
  */
-function getAccessToken(oAuth2Client: OAuth2Client, callback: Function) {
+function getAccessToken(oAuth2Client: OAuth2Client) {
   const authUrl = oAuth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES
   });
-  mainWindow.loadURL(authUrl);
+  getTokenAfterUserAuthorized(authUrl);
   console.log('Loading auth URL: ', authUrl);
 }
 
-function openDirectoryDialog() {
-  dialog.showOpenDialog(
-    mainWindow,
-    {
-      properties: ['openDirectory']
-    },
-    path => {
-      mainWindow.close();
-      startWatcher(path[0]);
+function getTokenAfterUserAuthorized(authUrl: string) {
+  mainWindow.loadURL(authUrl);
+  mainWindow.webContents.on('will-navigate', (ev: any, url: string) => {
+    if (url.includes('approvalCode')) {
+      // Get the approvalCode from URL params
+      const parsed = new URL(url);
+      const approvalCode = parsed.searchParams.get('approvalCode');
+      console.log(approvalCode);
+
+      oAuth2Client.getToken(approvalCode, (err: any, token: any) => {
+        if (err) {
+          return console.error('Error retrieving access token', err);
+        }
+        if (token) {
+          oAuth2Client.setCredentials(token);
+          console.log('oAuth set credentials with token: ', token);
+        }
+        // Store the token to disk for later program executions
+        preferences.saveToken(JSON.stringify(token));
+      });
+      openDirectoryDialog();
     }
-  );
+  });
 }
 
-function startWatcher(path: string) {
-  console.log('watching', path, 'for new files');
+function openDirectoryDialog() {
+  const screenshotsDirectory = preferences.getScreenshotsDirectory();
+  if (screenshotsDirectory) {
+    startWatcher(screenshotsDirectory);
+  } else {
+    dialog.showOpenDialog(
+      mainWindow,
+      {
+        properties: ['openDirectory']
+      },
+      path => {
+        preferences.saveScreenshotsDirectory(path[0]);
+        startWatcher(path[0]);
+      }
+    );
+  }
+  monitorWatcherDirectoryChange();
+}
 
-  const watcher = chokidar.watch(path, {
+function startWatcher(screenshotsPath: string) {
+  console.log('watching', screenshotsPath, 'for new files');
+
+  fileWatcher = chokidar.watch(screenshotsPath, {
     persistent: true,
     ignored: /[\/\\]\./,
     awaitWriteFinish: {
@@ -177,7 +179,7 @@ function startWatcher(path: string) {
   });
 
   var isReady = false;
-  watcher.on('ready', () => {
+  fileWatcher.on('ready', () => {
     isReady = true;
   })
     .on('add', filePath => {
@@ -186,6 +188,18 @@ function startWatcher(path: string) {
         addFileToGDrive(filePath);
       }
     });
+}
+
+function monitorWatcherDirectoryChange() {
+  let currentScreenshotsPath = preferences.getScreenshotsDirectory();
+  preferences.preferences.on('save', (prefs: any) => {
+    console.log('Prefs were saved');
+    if (preferences.getScreenshotsDirectory() != currentScreenshotsPath) {
+      currentScreenshotsPath = preferences.getScreenshotsDirectory();
+      fileWatcher.close();
+      startWatcher(currentScreenshotsPath);
+    }
+  })
 }
 
 function addFileToGDrive(filePath: string) {
