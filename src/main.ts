@@ -2,7 +2,7 @@ import * as chokidar from "chokidar";
 import { app, BrowserWindow, dialog, Notification } from "electron";
 import * as fs from "fs";
 import { OAuth2Client } from "google-auth-library";
-import { google } from "googleapis";
+import { google, drive_v3 } from "googleapis";
 import * as mimeTypes from "mime-types";
 import * as path from "path";
 import { URL } from "url";
@@ -19,6 +19,7 @@ let oAuth2Client: OAuth2Client;
 let clipshareFolderId: string;
 let trayMenu: TrayMenu;
 let fileWatcher: chokidar.FSWatcher;
+let drive: drive_v3.Drive;
 
 function createWindow() {
   // Create the browser window.
@@ -101,6 +102,7 @@ function authorize(credentials: any) {
 
   if (savedToken) {
     oAuth2Client.setCredentials(JSON.parse(savedToken));
+    drive = google.drive({ version: 'v3', auth: oAuth2Client });
     openDirectoryDialog();
     getOrCreateClipshareFolder();
   } else {
@@ -142,6 +144,7 @@ function getTokenAfterUserAuthorized(authUrl: string) {
         }
         // Store the token to disk for later program executions
         preferences.saveToken(JSON.stringify(token));
+        drive = google.drive({ version: 'v3', auth: oAuth2Client });
       });
       openDirectoryDialog();
     }
@@ -174,7 +177,7 @@ function startWatcher(screenshotsPath: string) {
     persistent: true,
     ignored: /[\/\\]\./,
     awaitWriteFinish: {
-      stabilityThreshold: 500
+      stabilityThreshold: 100
     }
   });
 
@@ -185,7 +188,7 @@ function startWatcher(screenshotsPath: string) {
     .on('add', filePath => {
       if (isReady) {
         console.log('file added: ', filePath);
-        addFileToGDrive(filePath);
+        uploadFileToGDrive(filePath);
       }
     });
 }
@@ -202,7 +205,7 @@ function monitorWatcherDirectoryChange() {
   })
 }
 
-function addFileToGDrive(filePath: string) {
+function uploadFileToGDrive(filePath: string) {
   console.log('Adding new file to google drive.');
   const fileName = path.basename(filePath);
   // empty mimeType when type is unknown 
@@ -212,8 +215,6 @@ function addFileToGDrive(filePath: string) {
     // uploading only screenshots
     return;
   }
-
-  const drive = google.drive({ version: 'v3', auth: oAuth2Client });
 
   drive.files.create({
     requestBody: {
@@ -278,7 +279,6 @@ function showNotification(title: string, message: string) {
 
 function getOrCreateClipshareFolder() {
   console.log("checking if clipshare folder exists");
-  const drive = google.drive({ version: 'v3', auth: oAuth2Client });
   drive.files.list({
     q: 'name contains "clipshare" and trashed=false'
   }, (error, result) => {
@@ -302,7 +302,6 @@ function getOrCreateClipshareFolder() {
 
 function createClipshareFolder() {
   console.log('creating clipshare folder');
-  const drive = google.drive({ version: 'v3', auth: oAuth2Client });
   drive.files.create({
     requestBody: {
       name: 'Clipshare',
