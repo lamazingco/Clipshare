@@ -8,7 +8,8 @@ import * as path from "path";
 import { URL } from "url";
 import { BitlyClient } from 'bitly/dist/bitly';
 import * as clipboard from 'clipboardy'
-const bitlyClient = new BitlyClient('9d94c5f5c8e3ee44310e2da016e8dd47eb5957ff');
+const bitlyClient = new BitlyClient(JSON.parse(
+  fs.readFileSync('.bitlyApiKey.json', 'utf8')).api_key);
 import { TrayMenu } from './TrayMenu';
 const preferences = require('./Preferences')
 
@@ -92,11 +93,7 @@ function authorizeWithGoogleDrive() {
  */
 function authorize(credentials: any) {
   const { client_secret, client_id, redirect_uris } = credentials.installed;
-  oAuth2Client = new google.auth.OAuth2(
-    client_id,
-    client_secret,
-    redirect_uris[0]
-  );
+  oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
 
   const savedToken = preferences.getToken();
 
