@@ -6,10 +6,8 @@ import { google, drive_v3 } from "googleapis";
 import * as mimeTypes from "mime-types";
 import * as path from "path";
 import { URL } from "url";
-import { BitlyClient } from 'bitly/dist/bitly';
 import * as clipboard from 'clipboardy'
-const bitlyClient = new BitlyClient(JSON.parse(
-  fs.readFileSync('.bitlyApiKey.json', 'utf8')).api_key);
+import * as bitly from './bitly'
 import { TrayMenu } from './TrayMenu';
 const preferences = require('./Preferences')
 
@@ -76,7 +74,7 @@ function createTrayMenu() {
 }
 
 function authorizeWithGoogleDrive() {
-  fs.readFile('credentials.json', (err, content) => {
+  fs.readFile('.credentials.json', (err, content) => {
     if (err) {
       return console.log('Error loading client secret file:', err);
     }
@@ -167,6 +165,18 @@ function openDirectoryDialog() {
   monitorWatcherDirectoryChange();
 }
 
+function monitorWatcherDirectoryChange() {
+  let currentScreenshotsPath = preferences.getScreenshotsDirectory();
+  preferences.preferences.on('save', (prefs: any) => {
+    console.log('Prefs were saved');
+    if (preferences.getScreenshotsDirectory() != currentScreenshotsPath) {
+      currentScreenshotsPath = preferences.getScreenshotsDirectory();
+      fileWatcher.close();
+      startWatcher(currentScreenshotsPath);
+    }
+  })
+}
+
 function startWatcher(screenshotsPath: string) {
   console.log('watching', screenshotsPath, 'for new files');
 
@@ -185,84 +195,94 @@ function startWatcher(screenshotsPath: string) {
     .on('add', filePath => {
       if (isReady) {
         console.log('file added: ', filePath);
-        uploadFileToGDrive(filePath);
+        handleNewFile(filePath);
       }
     });
 }
 
-function monitorWatcherDirectoryChange() {
-  let currentScreenshotsPath = preferences.getScreenshotsDirectory();
-  preferences.preferences.on('save', (prefs: any) => {
-    console.log('Prefs were saved');
-    if (preferences.getScreenshotsDirectory() != currentScreenshotsPath) {
-      currentScreenshotsPath = preferences.getScreenshotsDirectory();
-      fileWatcher.close();
-      startWatcher(currentScreenshotsPath);
+function handleNewFile(filePath: string) {
+    if (!isFileAScreenshot(filePath)) {
+      return;
     }
+
+    Promise.resolve()
+    .then(() => uploadFileToGDrive(filePath))
+    .then((fileId) => makeDriveFilePublic(fileId))
+    .then((fileId) => buildDriveFileUrlWithId(fileId))
+    .then((filePublicUrl) => bitly.shortenUrl(filePublicUrl))
+    .then((shortUrl) => saveScreenshotToClipboard(shortUrl))
+    .then((shortUrl) => showNotification("Screenshot copied to clipboard", shortUrl));
+}
+
+function isFileAScreenshot(filePath: string): boolean {
+  return getFileMimeType(filePath).includes('image');
+}
+
+function getFileMimeType(filePath: string): string {
+  return mimeTypes.lookup(filePath) || '';
+}
+
+function uploadFileToGDrive(filePath: string): Promise<string> {
+  console.log('Adding new file to google drive.');
+  const fileName = path.basename(filePath);
+  const mimeType = getFileMimeType(filePath);
+
+  return new Promise((resolve) => {
+    drive.files.create({
+      requestBody: {
+        name: fileName,
+        mimeType: mimeType,
+        parents: [clipshareFolderId]
+      }, media: {
+        mediaType: mimeType,
+        body: fs.createReadStream(filePath)
+      }
+    }, (error, axiosResponse) => {
+      if (error) {
+        console.log(error);
+      } else {
+        console.log('File id:', axiosResponse.data);
+        const fileId = axiosResponse.data.id;
+        resolve(fileId);
+      }
+    });
   })
 }
 
-function uploadFileToGDrive(filePath: string) {
-  console.log('Adding new file to google drive.');
-  const fileName = path.basename(filePath);
-  // empty mimeType when type is unknown 
-  const mimeType = mimeTypes.lookup(filePath) || '';
-  console.log('mimeType: ', mimeType);
-  if (!mimeType.includes('image')) {
-    // uploading only screenshots
-    return;
-  }
+function makeDriveFilePublic(fileId: string): Promise<string> {
+  return new Promise((resolve) => {
+    drive.permissions.create({
+      fileId: fileId,
+      requestBody: {
+        role: "reader",
+        type: "anyone",
+        allowFileDiscovery: false
+      }
+    }, function (error, result) {
+      if (error) {
+        console.log(error);
+      } else {
+        resolve(fileId);
 
-  drive.files.create({
-    requestBody: {
-      name: fileName,
-      mimeType: mimeType,
-      parents: [clipshareFolderId]
-    }, media: {
-      mediaType: mimeType,
-      body: fs.createReadStream(filePath)
-    }
-  }, (err, axiosResponse) => {
-    if (err) {
-      console.log(err);
-    } else {
-      console.log('File id:', axiosResponse.data);
-      const fileId = axiosResponse.data.id;
-      // create reader permissions to anyone
-      drive.permissions.create({
-        fileId: fileId,
-        requestBody: {
-          role: "reader",
-          type: "anyone",
-          allowFileDiscovery: false
-        }
-      }, function (err, result) {
-        if (err) {
-          console.log(err)
-        } else {
-          const filePublicUrl = 'https://drive.google.com/uc?export=view&id=' + fileId;
-          console.log('public url: ', filePublicUrl);
-          shortenUrl(filePublicUrl);
 
-        }
-      });
-    }
-  });
-}
-
-function shortenUrl(longUrl: string) {
-  bitlyClient.shorten(longUrl)
-    .then((result: any) => {
-      console.log(result.url);
-      saveScreenshotToClipboard(result.url);
-    }).catch((error) => {
-      console.log(error);
+      }
     });
+  })
 }
 
-function saveScreenshotToClipboard(url: string) {
-  clipboard.writeSync(url);
-  showNotification('Screenshot copied to clipboard', url);
+function buildDriveFileUrlWithId(fileId: string): Promise<string> {
+  return new Promise((resolve) => {
+    const filePublicUrl = 'https://drive.google.com/uc?export=view&id=' + fileId;
+    console.log('public url: ', filePublicUrl);
+    resolve(filePublicUrl);
+  })
+}
+
+function saveScreenshotToClipboard(shortUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    clipboard.write(shortUrl);
+    resolve(shortUrl);
+  });
 }
 
 function showNotification(title: string, message: string) {
