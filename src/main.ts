@@ -7,7 +7,7 @@ import * as mimeTypes from "mime-types";
 import * as path from "path";
 import { URL } from "url";
 import * as clipboard from 'clipboardy'
-import * as bitly from './bitly'
+import * as bitlyService from './BitlyService';
 import { TrayMenu } from './TrayMenu';
 const preferences = require('./Preferences')
 
@@ -74,7 +74,7 @@ function createTrayMenu() {
 }
 
 function authorizeWithGoogleDrive() {
-  fs.readFile('.credentials.json', (err, content) => {
+  fs.readFile('credentials.json', (err, content) => {
     if (err) {
       return console.log('Error loading client secret file:', err);
     }
@@ -209,7 +209,7 @@ function handleNewFile(filePath: string) {
     .then(() => uploadFileToGDrive(filePath))
     .then((fileId) => makeDriveFilePublic(fileId))
     .then((fileId) => buildDriveFileUrlWithId(fileId))
-    .then((filePublicUrl) => bitly.shortenUrl(filePublicUrl))
+    .then((filePublicUrl) => bitlyService.shortenUrl(filePublicUrl))
     .then((shortUrl) => saveScreenshotToClipboard(shortUrl))
     .then((shortUrl) => showNotification("Screenshot copied to clipboard", shortUrl));
 }
@@ -270,12 +270,11 @@ function makeDriveFilePublic(fileId: string): Promise<string> {
   })
 }
 
-function buildDriveFileUrlWithId(fileId: string): Promise<string> {
-  return new Promise((resolve) => {
+async function buildDriveFileUrlWithId(fileId: string): Promise<string> {
+  
     const filePublicUrl = 'https://drive.google.com/uc?export=view&id=' + fileId;
     console.log('public url: ', filePublicUrl);
-    resolve(filePublicUrl);
-  })
+    return filePublicUrl;
 }
 
 function saveScreenshotToClipboard(shortUrl: string): Promise<string> {

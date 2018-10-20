@@ -1,5 +1,5 @@
 {
-  "name": "electron-quick-start-typescript",
+  "name": "clipshare",
   "version": "1.0.0",
   "description": "Screenshot sharing app using Google Drive",
   "repository": "https://github.com/lamazingco/clipshare",
@@ -10,7 +10,7 @@
     "watch": "tsc -w",
     "lint": "tslint -c tslint.json -p tsconfig.json",
     "start": "npm run build && electron ./app/main.js",
-    "dist": "npm run build && electron-builder -mwl"
+    "dist": "npm run build && electron-builder -lmw"
   },
   "main": "app/main.js",
   "build": {
